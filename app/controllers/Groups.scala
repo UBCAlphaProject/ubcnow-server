@@ -6,6 +6,7 @@ import play.api.mvc._
 import play.api.db._
 import play.api.libs.json._
 import anorm._
+import play.api.libs.functional.syntax._
 import anorm.SqlParser._
 import play.api.libs.json.Json.JsValueWrapper
 import java.sql.Connection
@@ -21,12 +22,19 @@ object GroupController extends Controller {
         "concrete" -> group.concrete)
     }
 
+    implicit val groupReads : Reads[Group] = (
+        (__ \ "gid").read[Long] and
+        (__ \ "name").read[String] and
+        (__ \ "concrete").read[Boolean] and
+        (__ \ "interests").read[List[Long]]
+        )(Group)
+
     val groupRowParser = int("id") ~ str("name") ~ bool("concrete") map {
         case id~name~concrete => Group(id, name, concrete)
     }
 
     def list = Action {
-      DB.withConnection { implicit c =>
+      DB.withTransaction { implicit c =>
           val results: List[Group] = SQL("SELECT * FROM groups")
             .as(groupRowParser *)
             .map { case Group(gid, name, concrete, _) =>
@@ -37,7 +45,29 @@ object GroupController extends Controller {
     }
     
 
-    def create = TODO
+    def create = Action(parse.json) { request =>
+        val json: JsValue = request.body
+        val group = json.as[Group]
+
+        DB.withTransaction { implicit c =>
+            SQL("""
+                INSERT INTO groups(name, concrete)
+                VALUES ({name}, {concrete})
+                """)
+            .on(
+                "name" -> group.name,
+                "concrete" -> group.name)
+            for (interest <- group.interests) {
+                SQL("""
+                    INSERT INTO group_interests(gid, iid)
+                    VALUES ({gid}, {iid})
+                    """)
+                .on("gid" -> group.gid,
+                    "iid" -> interest)
+            }
+        }
+        Ok
+    }
 
     def get(gid: Long) = Action {
         DB.withTransaction { implicit c =>
@@ -53,9 +83,53 @@ object GroupController extends Controller {
         }
     }
     
-    def update(gid: Long) = TODO
+    def update(gid: Long) = Action(parse.json) { request =>
+        val json: JsValue = request.body
+        val group = json.as[Group]
+
+        DB.withTransaction { implicit c =>
+            SQL("""
+                UPDATE groups
+                SET name=ISNULL({name}, name),
+                concrete = ISNULL({concrete}, concrete)
+                WHERE iid={gid}
+                """)
+            .on(
+                "name" -> group.name,
+                "concrete" -> group.concrete,
+                "gid" -> group.gid)
+            SQL("""
+                DELETE FROM group_interests
+                WHERE gid={gid}
+                """)
+            .on("gid" -> group.gid)
+            for ( interest <- group.interests)
+            SQL("""
+                INSERT INTO group_interests(gid ,iid)
+                VALES ({gid}, {interest})
+                """)
+            .on(
+                "gid" -> group.gid,
+                "interest" -> interest)
+        }
+        Ok
+    }
     
-    def delete(gid: Long) = TODO
+    def delete(gid: Long) = Action {
+        DB.withTransaction { implicit c =>
+            SQL("""
+                DELETE FROM groups
+                WHERE id={gid}
+                """)
+            .on("gid" -> gid)
+            SQL("""
+                DELETE FROM group_interests
+                WHERE gid={gid}
+                """)
+            .on("gid" -> gid)
+        }
+        Ok
+    }
 
     def search = TODO
 

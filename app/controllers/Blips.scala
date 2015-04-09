@@ -9,6 +9,8 @@ import play.api.libs.json.Reads._
 import play.api.libs.functional.syntax._
 import anorm._
 import models.Blip
+import java.util.Date
+import org.joda.time._
 
 object BlipController extends Controller {
 
@@ -18,11 +20,13 @@ object BlipController extends Controller {
         (__ \ "title").writeNullable[String] and
         (__ \ "summary").writeNullable[String] and
         (__ \ "link").writeNullable[String] and
-        (__ \ "time").writeNullable[String] and
+        (__ \ "startTime").writeNullable[Date] and
+        (__ \ "endTime").writeNullable[Date] and
         (__ \ "address").writeNullable[String] and
         (__ \ "lat").writeNullable[Double] and
         (__ \ "lng").writeNullable[Double]
     )(unlift(Blip.unapply))
+
 
     implicit val blipReads: Reads[Blip] = (
         (__ \ "id").readNullable[Long] and
@@ -30,7 +34,8 @@ object BlipController extends Controller {
         (__ \ "title").readNullable[String] and
         (__ \ "summary").readNullable[String] and
         (__ \ "link").readNullable[String] and
-        (__ \ "time").readNullable[String] and
+        (__ \ "startTime").readNullable[Date] and
+        (__ \ "endTime").readNullable[Date] and
         (__ \ "address").readNullable[String] and
         (__ \ "lat").readNullable[Double] and
         (__ \ "lng").readNullable[Double]
@@ -52,15 +57,16 @@ object BlipController extends Controller {
           val blip: Blip = s.get
           DB.withConnection { implicit c =>
           SQL("""
-             INSERT INTO blips(gid, title, summary, link, time, address, lat, lng)
-             VALUES ({gid}, {title}, {summary}, {link}, {time}, {address}, {lat}, {lng})
+             INSERT INTO blips(gid, title, summary, link, startTime, endTime, address, lat, lng)
+             VALUES ({gid}, {title}, {summary}, {link}, {startTime}, {endTime}, {address}, {lat}, {lng})
              """)
            .on(
              "gid" -> blip.gid,
              "title" -> blip.title,
              "summary" -> blip.summary,
              "link" -> blip.link,
-             "time" -> blip.time,
+             "startTime" -> blip.startTime,
+             "endTime" -> blip.endTime,
              "address" -> blip.address,
              "lat" -> blip.lat,
              "lng" -> blip.lng).executeUpdate()
@@ -88,13 +94,14 @@ object BlipController extends Controller {
             DB.withConnection { implicit c =>
               SQL("""
                 UPDATE blips
-                SET title=ISNULL({title}, title), 
-                    summary=ISNULL({summary},summary),
-                    link=ISNULL({link}, link),
-                    time=ISNULL({time}, time),
-                    address=ISNULL({address}, address),
-                    lat=ISNULL({lat}, lat),
-                    lng=ISNULL({lng}, lng)
+                SET title={title},
+                    summary={summary},
+                    link={link},
+                    startTime={startTime},
+                    endTime={endTime},
+                    address={address},
+                    lat={lat},
+                    lng={lng}
                 WHERE id={id}
                 """)
               .on(
@@ -103,7 +110,8 @@ object BlipController extends Controller {
                  "title" -> blip.title,
                  "summary" -> blip.summary,
                  "link" -> blip.link,
-                 "time" -> blip.time,
+                 "startTime" -> blip.startTime,
+                 "endTime" -> blip.endTime,
                  "address" -> blip.address,
                  "lat" -> blip.lat,
                  "lng" -> blip.lng).executeUpdate()
@@ -135,12 +143,13 @@ object BlipController extends Controller {
           title: String,
           summary: Option[String],
           link: Option[String],
-          time: Option[String],
+          startTime: Option[Date],
+          endTime: Option[Date],
           address: Option[String],
           lat: Option[Double],
           lng: Option[Double]) => Blip(Some[Long](id), Some[Long](gid),
                                        Some[String](title), summary, link,
-                                       time, address, lat, lng)
+                                       startTime, endTime, address, lat, lng)
     }
 
 }

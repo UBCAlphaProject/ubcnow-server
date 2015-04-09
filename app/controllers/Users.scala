@@ -19,14 +19,14 @@ object UserController extends Controller {
       "id" -> user.id,
       "puid" -> user.puid,
       "studentNumber" -> user.studentNumber,
-      "givenName" -> user.firstName,
-      "sn" -> user.lastName,
+      "givenName" -> user.givenName,
+      "sn" -> user.sn,
       "interests" -> user.interests,
       "groups" -> user.groups)
   }
 
     implicit val userReads : Reads[User] = (
-      (__\ "id").read[Long] and
+      (__ \ "id").read[Long] and
       (__ \ "puid").read[String] and
       (__ \ "studentNumber").read[Long] and
       (__ \ "givenName").read[String] and
@@ -36,7 +36,7 @@ object UserController extends Controller {
   )(User)
 
   val userRowParser = int("id") ~ str("puid") ~ int("studentNumber") ~ str("givenName") ~ str("sn") map {
-    case id~puid~studentNumber~givenName~sn => User(puid, studentNumber, givenName, sn)
+    case id~puid~studentNumber~givenName~sn => User(id, puid, studentNumber, givenName, sn)
   }
 
   def list = Action {
@@ -44,7 +44,7 @@ object UserController extends Controller {
       val results: List[User] = SQL("SELECT * FROM users")
       .as(userRowParser *)
       .map { case User(id, puid, studentNumber, givenName, sn, _, _) =>
-        User(id, puid, studentNumber, givenName, sn, userInterests(puid).as(scalar[String] *), userGroups(puid).as(scalar[Long] *))
+        User(id, puid, studentNumber, givenName, sn, userInterests(id).as(scalar[Long] *), userGroups(id).as(scalar[Long] *))
       }
       Ok(Json.toJson(results))
     }
@@ -90,11 +90,11 @@ object UserController extends Controller {
   def get(id: Long) = Action {
     DB.withTransaction { implicit c =>
       SQL("SELECT * FROM users WHERE id = {id}")
-      .on("id" -> puid)
+      .on("id" -> id)
       .as(userRowParser singleOpt)
       match {
         case Some(User(id, puid, studentNumber, givenName, sn, _, _)) => {
-          Ok(Json.toJson(User(id, puid, studentNumber, givenName, sn, userInterests(puid).as(scalar[Long] *), userGroups(puid).as(scalar[Long] *))))
+          Ok(Json.toJson(User(id, puid, studentNumber, givenName, sn, userInterests(id).as(scalar[Long] *), userGroups(id).as(scalar[Long] *))))
         }
         case None => NotFound
       }

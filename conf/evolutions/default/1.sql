@@ -13,7 +13,7 @@ CREATE TABLE blips (
     id INTEGER NOT NULL AUTO_INCREMENT,
     gid INTEGER NOT NULL,
     title VARCHAR(255) NOT NULL,
-    summary TEXT,
+    summary VARCHAR(255),
     link VARCHAR(255),
     startTime DATE(255),
     endTime DATE(255),
